@@ -1,0 +1,153 @@
+benchmark_dir: benchmarks_2
+calculate_hor_length:
+  chromosome_colors: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/results/config/chrom_colors.tsv
+  ref_hor_lengths: []
+# cdr_finder:
+#   aligner: minimap2
+#   aln_mem: 50GB
+#   aln_threads: 8
+#   alr_threshold: 100000
+#   bam_rgx: .*\.bam$
+#   baseline_avg_methyl: 0.4
+#   bp_alr_merge: 8000
+#   bp_edge: 500000
+#   bp_merge: 1
+#   extend_edges_std: -1
+#   filter_by_live_hor: true
+#   height_perc_valley_threshold: 0.34
+#   input_bam_dir: data/ont
+#   prom_perc_valley_threshold: 0.3
+#   use_srf_regions: false
+#   window_size: 5000
+chromosomes:
+- chr1
+- chr2
+- chr3
+- chr4
+- chr5
+- chr6
+- chr7
+- chr8
+- chr9
+- chr10
+- chr11
+- chr12
+- chr13
+- chr14
+- chr15
+- chr16
+- chr17
+- chr18
+- chr19
+- chr20
+- chr21
+- chr22
+- chrX
+- chrY
+concat_asm:
+  input_dir: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/data/asm/R2
+  mem: 20GB
+container: docker://logsdonlab/cenmap:latest
+humas_annot:
+  hmm_profile: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/results/config/AS-HORs-hmmer3.4-071024.hmm.gz
+  mem: 30GB
+  mode: sd
+  threads: 4
+ident_cen_ctgs:
+  bp_merge: 2500000
+  bp_min_length: 30000
+  bp_slop: 1000000
+  exclude_kmers_lt_n: 10
+  mem_aln: 50GB
+  mem_srf: 50GB
+  monomer_periods:
+  - 170
+  - 340
+  paf2bed_min_ident: 70.0
+  perc_mon_len_diff: 2.0
+  perc_multi_chrom: 5.0
+  reference: null
+  threads_aln: 8
+  threads_srf: 8
+ideogram:
+  height: 15
+  legend_prop: 0.1
+  title: '{sm}'
+  use_renamed_reoriented: true
+  width: 5
+log_dir: logs_2
+moddotplot:
+  ident_thr: 70.0
+  mem: 10GB
+  window: 5000
+# nucflag:
+#   config_nucflag: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/results/config/nucflag.toml
+#   ignore_regions: null
+#   ignore_type: asat
+#   input_hifi_reads_fofn_dir: data/hifi
+#   mem_aln: 50GB
+#   mem_nucflag: 50GB
+#   processes_nucflag: 8
+#   reads_rgx: .*\.fastq.gz$
+#   samtools_view_flag: 2308
+#   threads_aln: 8
+output_dir: results/R2
+plot_hor_stv:
+  partition_by:
+  - chromosome
+  ref_stv: []
+  sat_annot_colors: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/results/config/repeatmasker_sat_annot_colors.json
+  sf_annot_colors: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/results/config/sf_annot_colors.tsv
+  stv_annot_colors: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/results/config/stv_annot_colors.tsv
+repeatmasker:
+  bp_shannon_window: 5000
+  omit_shannon_plots: true
+  partition_by:
+  - chromosome
+  ref_repeatmasker_output: []
+  repeat_colors: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/results/config/repeatmasker_colors.json
+  species: human
+  threads: 4
+  trim_to_repeats: []
+samples: [
+  HG00741,
+  HG01952,
+  HG02630,
+  HG01243,
+  HG02148,
+  HG03453,
+  HG00621,
+  HG01978,
+  HG02559,
+  HG03540,
+  HG03486,
+  HG00673,
+  HG01891,
+  HG02723,
+  NA21309,
+  HG02109,
+  HG01109,
+  HG01258,
+  HG03098,
+  HG00438,
+  HG01361,
+  NA19240,
+  NA18906,
+  HG03579,
+  HG01358,
+  HG01106,
+  HG02486,
+  HG01928,
+  HG02080,
+  HG02717,
+  HG01175,
+  HG01071,
+  NA20129,
+  HG03516,
+  HG00735,
+  HG02622,
+  HG02886,
+  HG02055,
+  HG02257,
+  HG01123,
+]

@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 from collections import OrderedDict
+from typing import Callable
 
 
 DEF_COLS = ("chrom", "chrom_st", "chrom_end", "length")
@@ -43,18 +44,67 @@ DEF_CHR_COLORS = dict(
 )
 
 
+def filter_R1(df: pl.DataFrame) -> pl.DataFrame:
+    return df.filter(~(pl.col("chrom_name").str.contains("chr3"))).filter(pl.col("sample") != "HG03492")
+
+
+def filter_R2(df: pl.DataFrame) -> pl.DataFrame:
+    df = df.filter(
+        ~(
+            pl.col("contig_name").is_in(
+                [
+                    "HG00621#2#JAHBCC020000017.1:2-689335",
+                    "HG00438#2#JAHBCA020000020.1:2-703696",
+                ]
+            )
+        )
+    )
+    return df
+
+
+def read_lengths(
+    file: str,
+    rgx_name_groups: str,
+    fn_filter: Callable[[pl.DataFrame], pl.DataFrame] | None = None,
+) -> pl.DataFrame:
+    df_lengths = (
+        pl.read_csv(
+            file,
+            has_header=False,
+            separator="\t",
+            columns=[0, 1, 2, 3],
+            new_columns=DEF_COLS,
+        )
+        .with_columns(source=pl.lit("samples"))
+        .with_columns(
+            mtch_chrom=pl.col("chrom").str.extract_groups(rgx_name_groups),
+        )
+        .unnest("mtch_chrom")
+        .with_columns(pl.col("chrom_name").str.extract("(chr[0-9XY]+)"))
+    )
+    if fn_filter:
+        df_lengths = fn_filter(df_lengths)
+
+    return df_lengths
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="Plot cumulative centromere HOR array lengths."
     )
     ap.add_argument(
-        "-i",
-        "--infile",
+        "-a",
+        "--infile_a",
         help="Input centromere HOR array lengths.",
-        type=argparse.FileType("rb"),
+        type=str,
     )
     ap.add_argument(
-        "-a",
+        "-b",
+        "--infile_b",
+        help="Second input centromere HOR array lengths.",
+        type=str,
+    )
+    ap.add_argument(
         "--added_inputs",
         help="Additional centromere HOR array lengths. First column should be be a subset of --chroms",
         nargs="*",
@@ -85,10 +135,12 @@ def main():
     args = ap.parse_args()
 
     # Reverse to prevent matching chr1 with both chr1 and chr11
-    rgx_chrom = "|".join([*reversed(sorted(args.chroms)), "-"])
-    rgx_name_groups = r"^.*?_(?<chrom_name>(" + rgx_chrom + r")*)_.*?$"
-    plot_all = "all" in args.chroms
-
+    chroms = args.chroms
+    chroms.extend([f"rc-{chrom}" for chrom in chroms])
+    rgx_chrom = "|".join([*chroms, "-"])
+    rgx_name_groups = (
+        r"^(?<sample>.*?)_(?<chrom_name>(" + rgx_chrom + r")*)_(?<contig_name>.*?)$"
+    )
     if args.chrom_colors:
         _chroms = set(args.chroms)
         with open(args.chrom_colors) as fh:
@@ -101,26 +153,16 @@ def main():
     else:
         chrom_colors = DEF_CHR_COLORS
 
-    if "all" not in chrom_colors:
-        chrom_colors["all"] = "#808080"
-
-    df_lengths = pl.read_csv(
-        args.infile,
-        has_header=False,
-        separator="\t",
-        columns=[0, 1, 2, 3],
-        new_columns=DEF_COLS,
-    ).with_columns(source=pl.lit("samples"))
-    if plot_all:
-        df_lengths = df_lengths.with_columns(chrom_name=pl.lit("all"))
-    else:
-        df_lengths = (
-            df_lengths.with_columns(
-                mtch_chrom=pl.col("chrom").str.extract_groups(rgx_name_groups),
-            )
-            .unnest("mtch_chrom")
-            .drop("2")
-        )
+    df_lengths = pl.concat(
+        [
+            read_lengths(
+                args.infile_a, rgx_name_groups, fn_filter=filter_R1
+            ).with_columns(release=pl.lit("Release 1")),
+            read_lengths(
+                args.infile_b, rgx_name_groups, fn_filter=filter_R2
+            ).with_columns(release=pl.lit("Release 2")),
+        ]
+    )
 
     added_palettes = OrderedDict()
     dfs_added_lengths = []
@@ -142,22 +184,15 @@ def main():
                 new_columns=DEF_COLS,
             ).with_columns(source=pl.lit(lbl))
 
-            if plot_all:
-                df = df.with_columns(chrom_name=pl.lit("all"))
-            else:
-                df = df.with_columns(
-                    chrom_name=pl.col("chrom").str.extract(f"^({rgx_chrom})$")
-                )
+            df = df.with_columns(
+                chrom_name=pl.col("chrom").str.extract(f"^({rgx_chrom})$")
+            )
 
             added_palettes[lbl] = color
             dfs_added_lengths.append(df)
 
     # Get order of chromosomes
     palettes = chrom_colors | added_palettes
-    palette_order = {
-        elem: i for i, elem in enumerate([*args.chroms, *added_palettes.keys()])
-    }
-
     df_all_lengths: pl.DataFrame = pl.concat([df_lengths, *dfs_added_lengths])
 
     # Merge asat HOR array lengths
@@ -167,6 +202,7 @@ def main():
             pl.col("chrom_st").min(),
             pl.col("chrom_end").max(),
             pl.col("length").sum(),
+            pl.col("release").first(),
         )
         ylabel = "Cumulative length of α-satellite HOR arrays (Mbp)"
     else:
@@ -182,34 +218,34 @@ def main():
         palettes.keys()
     )
     palettes = palettes | {chrom: "#FFFFFF" for chrom in uncovered_chroms}
-
+    palette_order = {p: i for i, p in enumerate(palettes.keys())}
     df_all_lengths_pd = df_all_lengths.to_pandas()
+    hue_order = ["Release 1", "Release 2"]
     sns.violinplot(
         x="chrom_name",
         y="length",
-        hue="chrom_name",
+        hue="release",
         data=df_all_lengths_pd,
-        palette=palettes,
         order=palette_order.keys(),
+        hue_order=hue_order,
         inner="quart",
     )
-    sns.swarmplot(
+    sns.stripplot(
         x="chrom_name",
         y="length",
+        hue="release",
         data=df_all_lengths_pd,
-        hue="color_key",
         linewidth=0.5,
+        dodge=True,
         edgecolor="black",
         order=palette_order.keys(),
-        palette=palettes,
+        hue_order=hue_order,
         size=4,
     )
 
     ax = plt.gca()
     legend_kwargs = dict(
-        loc="center left",
-        bbox_to_anchor=(1, 0.5),
-        title="Source",
+        loc="upper right",
         alignment="left",
         frameon=False,
     )
@@ -245,7 +281,7 @@ def main():
     ax.set_xlabel("Chromosome")
     # Remove chr from x-ticks
     xtick_labels = [lbl.get_text().replace("chr", "") for lbl in ax.get_xticklabels()]
-    ax.set_xticklabels(xtick_labels)
+    ax.set_xticks(ax.get_xticks(), xtick_labels)
 
     # Set units of y-axis
     ax.yaxis.minorticks_on()
@@ -262,15 +298,22 @@ def main():
         new_xtick_labels.append(txt)
 
     # Add line and ytick for mean length
-    mean_length = df_all_lengths["length"].mean()
-    ax.axhline(mean_length, linestyle="dotted", color="black")
-    mean_length_label = str(round(mean_length / 1_000_000, 1))
-    ax.set_yticks([*yticks, mean_length], [*new_xtick_labels, mean_length_label])
+    mean_length_r1 = df_all_lengths.filter(pl.col("release") == "Release 1")["length"].mean()
+    mean_length_r2 = df_all_lengths.filter(pl.col("release") == "Release 2")["length"].mean()
+    mean_length_r1_label = str(round(mean_length_r1 / 1_000_000, 1))
+    mean_length_r2_label = str(round(mean_length_r2 / 1_000_000, 1))
+    ax.axhline(mean_length_r1, linestyle="dotted", color="blue")
+    ax.axhline(mean_length_r2, linestyle="dotted", color="orange")
+    ax.set_yticks([*yticks, mean_length_r1, mean_length_r2], [*new_xtick_labels, mean_length_r1_label, mean_length_r2_label])
+
+    yticklabels = ax.get_yticklabels()
+    for i, color in [(-2, "blue"), (-1, "orange")]:
+        yticklabels[i].set_color(color)
 
     ax.set_ylabel(ylabel)
     ax.set_ylim(0, ymax)
 
-    plt.gcf().set_size_inches(20, 8)
+    plt.gcf().set_size_inches(30, 8)
     plt.savefig(args.output, dpi=600, bbox_inches="tight")
 
 

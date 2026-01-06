@@ -10,6 +10,11 @@ git clone https://github.com/logsdon-lab/CenMAP \
 cd CenMAP
 ```
 
+## Run CenMAP
+```bash
+```
+> WIP
+
 ## Get NucFlag results
 ```bash
 ```
@@ -34,8 +39,13 @@ Manual changes:
 ### And accurate centromeres
 > WIP
 
-## HOR array length
-> WIP
+## HOR array length for complete centromeres
+```bash
+python exp/scripts/live_arrays/plot_hor_length.py \
+-a /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/results/R1/results/R1/final/bed/all_AS-HOR_lengths.bed \
+-b /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/results/R2/results/R2/final/bed/all_AS-HOR_lengths.bed \
+-o figures/hor_array_length_complete_centromeres.png
+```
 
 Manual changes:
-* Recalculate chr19 array length due to chimeric HOR breaking array. Reduce threshold on required number of monomers in HOR.
+* Same as [Count complete centromeres](#count-complete-centromeres)

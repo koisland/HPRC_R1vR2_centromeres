@@ -2,10 +2,9 @@ import argparse
 
 import polars as pl
 import seaborn as sns
-import matplotlib.pyplot as plt
 
 from typing import Callable
-from matplotlib.axes import Axes
+from matplotlib.text import Text
 
 
 DEF_IN_COLS = ["ctg", "start", "end", "length"]
@@ -45,17 +44,27 @@ def get_df_counts(
 
 
 def filter_R1(df: pl.DataFrame) -> pl.DataFrame:
-    return df.filter(~(pl.col("chr") == "chr3")).filter(pl.col("sample") != "HG03492")
+    return df.filter(~(pl.col("chrom_name").str.contains("chr3"))).filter(pl.col("sample") != "HG03492")
+
 
 def filter_R2(df: pl.DataFrame) -> pl.DataFrame:
     df = df.filter(
-        ~(pl.col("contig_name").is_in([
-            "HG00621#2#JAHBCC020000017.1:2-689335",
-            "HG00438#2#JAHBCA020000020.1:2-703696"
-        ]))
+        ~(
+            pl.col("contig_name").is_in(
+                [
+                    "HG00621#2#JAHBCC020000017.1:2-689335",
+                    "HG00438#2#JAHBCA020000020.1:2-703696",
+                ]
+            )
+        )
     )
     # breakpoint()
     return df
+
+
+def perc_cens(n: int) -> str:
+    return f"{(n / DEF_N_CHR) * 100:,.0f}"
+
 
 def main():
     ap = argparse.ArgumentParser(
@@ -123,16 +132,13 @@ def main():
     # Scaffold fragments.
     # HG00621_rc-chr2_HG00621#2#JAHBCC020000017.1:2-689335
     # HG00438_chrX_HG00438#2#JAHBCA020000020.1:2-703696
-    df_b = get_df_counts(
-        args.input_b,
-        rgx_name_groups,
-        n_chroms,
-        fn_filter=filter_R2
+    df_b = get_df_counts(args.input_b, rgx_name_groups, n_chroms, fn_filter=filter_R2)
+    df_all = pl.concat(
+        [
+            df_a.with_columns(release=pl.lit("Release 1")),
+            df_b.with_columns(release=pl.lit("Release 2")),
+        ]
     )
-    df_all = pl.concat([
-        df_a.with_columns(release=pl.lit("Release 1")),
-        df_b.with_columns(release=pl.lit("Release 2")),
-    ])
 
     g = sns.catplot(
         data=df_all,
@@ -149,20 +155,34 @@ def main():
     yticks = [*range(0, 50, 10), DEF_N_CHR]
     yticklabels = [str(v) for v in yticks]
     g.ax.set_yticks(yticks, yticklabels)
+    g.ax.set_ylim(0, 46)
 
-    ax_2 =  g.ax.secondary_yaxis(location="right")
+    mean_a = df_a["len"].mean()
+    mean_b = df_b["len"].mean()
+    g.ax.axhline(mean_a, color="blue", linestyle="dotted")
+    g.ax.axhline(mean_b, color="orange", linestyle="dotted")
+
+    ax_2 = g.ax.secondary_yaxis(location="right")
     ax_2.set_yticks(
-        yticks,
-        [f"{(ytick / DEF_N_CHR) * 100:,.0f}" for ytick in yticks],
+        [*yticks, mean_a, mean_b],
+        [*[perc_cens(ytick) for ytick in yticks], perc_cens(mean_a), perc_cens(mean_b)],
     )
+    yticklabels = ax_2.get_yticklabels()
+    for i, color in [(-2, "blue"), (-1, "orange")]:
+        yticklabels[i].set_color(color)
+
     ax_2.set_ylabel(r"% of centromeres completely assembled")
 
     sns.move_legend(
         g,
         loc="lower center",
-        bbox_to_anchor=(0.5, -0.075), ncol=2, title=None, frameon=False,
+        bbox_to_anchor=(0.5, -0.075),
+        ncol=2,
+        title=None,
+        frameon=False,
     )
-    g.savefig(args.output, bbox_inches="tight")  
+    g.savefig(args.output, bbox_inches="tight")
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

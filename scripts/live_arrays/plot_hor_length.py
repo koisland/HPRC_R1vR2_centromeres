@@ -45,7 +45,11 @@ DEF_CHR_COLORS = dict(
 
 
 def filter_R1(df: pl.DataFrame) -> pl.DataFrame:
-    return df.filter(~(pl.col("chrom_name").str.contains("chr3"))).filter(pl.col("sample") != "HG03492")
+    return (
+        df
+        # .filter(~(pl.col("chrom_name").str.contains("chr3")))
+        .filter(pl.col("sample") != "HG03492")
+    )
 
 
 def filter_R2(df: pl.DataFrame) -> pl.DataFrame:
@@ -116,7 +120,7 @@ def main():
         "--mode",
         type=str,
         choices=["total", "arr"],
-        default="total",
+        default="arr",
         help="Plotting mode. Either total live array length (total) or live array length (arr).",
     )
     ap.add_argument(

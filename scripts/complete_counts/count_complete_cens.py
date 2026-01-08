@@ -116,7 +116,7 @@ def main():
         chroms.extend([f"rc-{chrom}" for chrom in chroms])
         rgx_chrom = "|".join([*chroms, "-"])
         rgx_name_groups = (
-            r"^(?<sample>.*?)_(?<chr>(" + rgx_chrom + r")*)_(?<contig_name>.*?)$"
+            r"^(?<sample>.*?)_(?<chrom_name>(" + rgx_chrom + r")*)_(?<contig_name>.*?)$"
         )
     else:
         rgx_name_groups = r"^(?<sample>.*?)_(?<contig_name>.*?)$"

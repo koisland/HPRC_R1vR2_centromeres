@@ -83,7 +83,8 @@ python scripts/complete_counts/count_complete_cens.py \
 python scripts/live_arrays/plot_hor_length.py \
 -a /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/results/R1/results/R1/final/bed/all_AS-HOR_lengths.bed \
 -b /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/results/R2/results/R2/final/bed/all_AS-HOR_lengths.bed \
--o figures/hor_array_length_complete_centromeres.png
+-o figures/hor_array_length_complete_centromeres.png \
+--mode total
 ```
 
 ### And accurate centromeres
@@ -91,7 +92,8 @@ python scripts/live_arrays/plot_hor_length.py \
 python scripts/live_arrays/plot_hor_length.py \
 -a /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/data/R1_centromeres/all_AS-HOR_lengths.bed \
 -b /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/data/R2_centromeres/all_AS-HOR_lengths.bed \
--o figures/hor_array_length_complete_and_accurate_centromeres.png
+-o figures/hor_array_length_complete_and_accurate_centromeres.png \
+--mode total
 ```
 
 Manual changes:

@@ -302,13 +302,20 @@ def main():
         new_xtick_labels.append(txt)
 
     # Add line and ytick for mean length
-    mean_length_r1 = df_all_lengths.filter(pl.col("release") == "Release 1")["length"].mean()
-    mean_length_r2 = df_all_lengths.filter(pl.col("release") == "Release 2")["length"].mean()
+    mean_length_r1 = df_all_lengths.filter(pl.col("release") == "Release 1")[
+        "length"
+    ].mean()
+    mean_length_r2 = df_all_lengths.filter(pl.col("release") == "Release 2")[
+        "length"
+    ].mean()
     mean_length_r1_label = str(round(mean_length_r1 / 1_000_000, 1))
     mean_length_r2_label = str(round(mean_length_r2 / 1_000_000, 1))
     ax.axhline(mean_length_r1, linestyle="dotted", color="blue")
     ax.axhline(mean_length_r2, linestyle="dotted", color="orange")
-    ax.set_yticks([*yticks, mean_length_r1, mean_length_r2], [*new_xtick_labels, mean_length_r1_label, mean_length_r2_label])
+    ax.set_yticks(
+        [*yticks, mean_length_r1, mean_length_r2],
+        [*new_xtick_labels, mean_length_r1_label, mean_length_r2_label],
+    )
 
     yticklabels = ax.get_yticklabels()
     for i, color in [(-2, "blue"), (-1, "orange")]:

@@ -44,7 +44,9 @@ def get_df_counts(
 
 
 def filter_R1(df: pl.DataFrame) -> pl.DataFrame:
-    return df.filter(~(pl.col("chrom_name").str.contains("chr3"))).filter(pl.col("sample") != "HG03492")
+    return df.filter(~(pl.col("chrom_name").str.contains("chr3"))).filter(
+        pl.col("sample") != "HG03492"
+    )
 
 
 def filter_R2(df: pl.DataFrame) -> pl.DataFrame:
@@ -139,6 +141,7 @@ def main():
             df_b.with_columns(release=pl.lit("Release 2")),
         ]
     )
+    print(df_all.group_by(["release"]).agg(pl.col("len").sum()))
 
     g = sns.catplot(
         data=df_all,

@@ -3,8 +3,7 @@ import numpy as np
 import polars as pl
 import seaborn as sns
 import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
-from matplotlib.lines import Line2D
+from matplotlib.axes import Axes
 from collections import OrderedDict
 from typing import Callable
 
@@ -42,13 +41,20 @@ DEF_CHR_COLORS = dict(
         ),
     )
 )
+LEGEND_KWARGS = dict(
+    loc="upper right",
+    alignment="left",
+    frameon=False,
+)
 
 
 def filter_R1(df: pl.DataFrame) -> pl.DataFrame:
     return (
         df
-        # .filter(~(pl.col("chrom_name").str.contains("chr3")))
-        .filter(pl.col("sample") != "HG03492")
+        # Only if we're showing total length, otherwise we need to show small albeit incomplete arrays.
+        .filter(~(pl.col("chrom_name").str.contains("chr3"))).filter(
+            pl.col("sample") != "HG03492"
+        )
     )
 
 
@@ -64,6 +70,30 @@ def filter_R2(df: pl.DataFrame) -> pl.DataFrame:
         )
     )
     return df
+
+
+def add_mean_lines(
+    ax: Axes,
+    df: pl.DataFrame,
+    by_col: str,
+    val_col: str,
+    fn_label: Callable[[int], str],
+    colors: dict[str, str],
+):
+    for grp, df_grp in df.group_by([by_col]):
+        grp = grp[0]
+        mean = df_grp[val_col].mean()
+        label = fn_label(mean)
+        color = colors[grp]
+        # Draw line
+        ax.axhline(mean, linestyle="dotted", color=color)
+        # Set new labels
+        yticks = ax.get_yticks()
+        yticklabels = ax.get_yticklabels()
+        ax.set_yticks([*yticks, mean], [*yticklabels, label])
+        yticklabels = ax.get_yticklabels()
+        # Last one is color
+        yticklabels[-1].set_color(color)
 
 
 def read_lengths(
@@ -109,13 +139,6 @@ def main():
         type=str,
     )
     ap.add_argument(
-        "--added_inputs",
-        help="Additional centromere HOR array lengths. First column should be be a subset of --chroms",
-        nargs="*",
-        metavar="{lbl}={path}={color}",
-        type=str,
-    )
-    ap.add_argument(
         "-m",
         "--mode",
         type=str,
@@ -124,39 +147,39 @@ def main():
         help="Plotting mode. Either total live array length (total) or live array length (arr).",
     )
     ap.add_argument(
+        "--color_a",
+        type=str,
+        help="Color for a input.",
+        default="blue",
+    )
+    ap.add_argument(
+        "--color_b",
+        type=str,
+        help="Color for b input.",
+        default="red",
+    )
+    ap.add_argument(
         "-c",
         "--chroms",
         nargs="+",
         default=DEF_CHR_ORDER,
         help="Chromosome names.",
     )
-    ap.add_argument(
-        "--chrom_colors",
-        default=None,
-        help="Chromosome colors as TSV file with chrom to color mapping.",
-    )
     ap.add_argument("-o", "--output", help="Output plot file.", required=True, type=str)
     args = ap.parse_args()
 
+    palette = {
+        "Release 1": args.color_a,
+        "Release 2": args.color_b,
+    }
+
     # Reverse to prevent matching chr1 with both chr1 and chr11
-    chroms = args.chroms
+    chroms = list(args.chroms)
     chroms.extend([f"rc-{chrom}" for chrom in chroms])
     rgx_chrom = "|".join([*chroms, "-"])
     rgx_name_groups = (
         r"^(?<sample>.*?)_(?<chrom_name>(" + rgx_chrom + r")*)_(?<contig_name>.*?)$"
     )
-    if args.chrom_colors:
-        _chroms = set(args.chroms)
-        with open(args.chrom_colors) as fh:
-            chrom_colors = {}
-            for line in fh:
-                chrom, color = line.strip().split("\t")
-                if chrom not in _chroms:
-                    continue
-                chrom_colors[chrom] = color
-    else:
-        chrom_colors = DEF_CHR_COLORS
-
     df_lengths = pl.concat(
         [
             read_lengths(
@@ -168,40 +191,9 @@ def main():
         ]
     )
 
-    added_palettes = OrderedDict()
-    dfs_added_lengths = []
-    if args.added_inputs:
-        for elems in (lbl_path.split("=") for lbl_path in args.added_inputs):
-            # Allow color to be optional.
-            try:
-                lbl, path, color = elems
-            except ValueError:
-                lbl, path = elems
-                # Generate random color.
-                color = np.random.rand(3)
-
-            df = pl.read_csv(
-                path,
-                has_header=False,
-                separator="\t",
-                columns=[0, 1, 2, 3],
-                new_columns=DEF_COLS,
-            ).with_columns(source=pl.lit(lbl))
-
-            df = df.with_columns(
-                chrom_name=pl.col("chrom").str.extract(f"^({rgx_chrom})$")
-            )
-
-            added_palettes[lbl] = color
-            dfs_added_lengths.append(df)
-
-    # Get order of chromosomes
-    palettes = chrom_colors | added_palettes
-    df_all_lengths: pl.DataFrame = pl.concat([df_lengths, *dfs_added_lengths])
-
     # Merge asat HOR array lengths
     if args.mode == "total":
-        df_all_lengths = df_all_lengths.group_by(["chrom", "source"]).agg(
+        df_all_lengths = df_lengths.group_by(["chrom", "source"]).agg(
             pl.col("chrom_name").first(),
             pl.col("chrom_st").min(),
             pl.col("chrom_end").max(),
@@ -210,6 +202,7 @@ def main():
         )
         ylabel = "Cumulative length of α-satellite HOR arrays (Mbp)"
     else:
+        df_all_lengths = df_lengths
         ylabel = "Length of α-satellite HOR arrays (Mbp)"
 
     df_all_lengths = df_all_lengths.with_columns(
@@ -218,21 +211,54 @@ def main():
         .otherwise(pl.col("chrom_name"))
     )
     # Add remaining chroms to plot if multi-chroms.
-    uncovered_chroms = set(df_all_lengths["chrom_name"].unique()).difference(
-        palettes.keys()
-    )
-    palettes = palettes | {chrom: "#FFFFFF" for chrom in uncovered_chroms}
-    palette_order = {p: i for i, p in enumerate(palettes.keys())}
+    palette_order = {p: i for i, p in enumerate(DEF_CHR_ORDER)}
     df_all_lengths_pd = df_all_lengths.to_pandas()
-    hue_order = ["Release 1", "Release 2"]
+
+    fig, axes = plt.subplots(
+        nrows=2,
+        ncols=1,
+        sharex=True,
+        sharey=False,
+        figsize=(30, 10),
+        height_ratios=(0.3, 0.7),
+        layout="constrained",
+    )
+    fig: plt.Figure
+    ax_bar: Axes = axes[0]
+    ax_violin: Axes = axes[1]
+
+    df_all_length_counts = df_all_lengths.group_by(
+        ["chrom_name", "source", "release"]
+    ).agg(count=pl.col("chrom").count())
+    sns.barplot(
+        x="chrom_name",
+        y="count",
+        hue="release",
+        data=df_all_length_counts,
+        order=palette_order.keys(),
+        hue_order=palette.keys(),
+        palette=palette,
+        ax=ax_bar,
+        legend="full",
+        edgecolor="black",
+    )
+    for cont in ax_bar.containers:
+        ax_bar.bar_label(cont)
+
+    ax_bar.set_ylabel("Number of α-satellite HOR arrays")
+
     sns.violinplot(
         x="chrom_name",
         y="length",
         hue="release",
         data=df_all_lengths_pd,
         order=palette_order.keys(),
-        hue_order=hue_order,
+        hue_order=palette.keys(),
+        palette=palette,
+        density_norm="width",
         inner="quart",
+        ax=ax_violin,
+        legend=None,
     )
     sns.stripplot(
         x="chrom_name",
@@ -243,89 +269,51 @@ def main():
         dodge=True,
         edgecolor="black",
         order=palette_order.keys(),
-        hue_order=hue_order,
+        hue_order=palette.keys(),
+        palette=palette,
         size=4,
+        ax=ax_violin,
+        legend=None,
     )
 
-    ax = plt.gca()
-    legend_kwargs = dict(
-        loc="upper right",
-        alignment="left",
-        frameon=False,
-    )
-    try:
-        # Sort legend elements
-        handles_labels = ax.get_legend_handles_labels()
-        # Only display dots.
-        handles, labels = zip(
-            *sorted(
-                (
-                    (handle, length)
-                    for handle, length in zip(*handles_labels)
-                    if isinstance(handle, Line2D)
-                ),
-                key=lambda x: palette_order.get(x[1], -1),
-            )
-        )
-        # Place outside of figure.
-        ax.legend(handles, labels, **legend_kwargs)
-    except ValueError:
-        ax.legend(
-            handles=[
-                Patch(color=color, label=chrom) for chrom, color in chrom_colors.items()
-            ],
-            **legend_kwargs,
-        )
+    sns.move_legend(ax_bar, title=None, **LEGEND_KWARGS)
 
     # Hide spines
-    for spine in ["top", "right"]:
-        ax.spines[spine].set_visible(False)
-
+    for ax in axes:
+        for spine in ["top", "right"]:
+            ax.spines[spine].set_visible(False)
     # x-axis
-    ax.set_xlabel("Chromosome")
+    ax_violin.set_xlabel("Chromosome")
     # Remove chr from x-ticks
-    xtick_labels = [lbl.get_text().replace("chr", "") for lbl in ax.get_xticklabels()]
-    ax.set_xticks(ax.get_xticks(), xtick_labels)
-
+    xtick_labels = [
+        lbl.get_text().replace("chr", "") for lbl in ax_violin.get_xticklabels()
+    ]
+    ax_violin.set_xticks(ax_violin.get_xticks(), xtick_labels)
     # Set units of y-axis
-    ax.yaxis.minorticks_on()
+    ax_violin.yaxis.minorticks_on()
     # Remove sci notation
-    ax.yaxis.set_major_formatter("plain")
-    new_xtick_labels = []
-    _, ymax = ax.get_ylim()
-    yticks, yticklabels = ax.get_yticks(), ax.get_yticklabels()
-    for txt in yticklabels:
-        _, y = txt.get_position()
-        # Convert units and round.
-        new_y_txt = str(round(y / 1_000_000, 3))
-        txt.set_text(new_y_txt)
-        new_xtick_labels.append(txt)
+    ax_violin.yaxis.set_major_formatter(lambda v, _: str(round(v / 1_000_000, 3)))
+    ax_violin.set_ylabel(ylabel)
 
-    # Add line and ytick for mean length
-    mean_length_r1 = df_all_lengths.filter(pl.col("release") == "Release 1")[
-        "length"
-    ].mean()
-    mean_length_r2 = df_all_lengths.filter(pl.col("release") == "Release 2")[
-        "length"
-    ].mean()
-    mean_length_r1_label = str(round(mean_length_r1 / 1_000_000, 1))
-    mean_length_r2_label = str(round(mean_length_r2 / 1_000_000, 1))
-    ax.axhline(mean_length_r1, linestyle="dotted", color="blue")
-    ax.axhline(mean_length_r2, linestyle="dotted", color="orange")
-    ax.set_yticks(
-        [*yticks, mean_length_r1, mean_length_r2],
-        [*new_xtick_labels, mean_length_r1_label, mean_length_r2_label],
+    # Add line and ytick for mean length and count
+    add_mean_lines(
+        ax=ax_violin,
+        df=df_all_lengths,
+        by_col="release",
+        val_col="length",
+        fn_label=lambda x: str(round(x / 1_000_000, 1)),
+        colors=palette,
+    )
+    add_mean_lines(
+        ax=ax_bar,
+        df=df_all_length_counts,
+        by_col="release",
+        val_col="count",
+        fn_label=lambda x: str(int(x)),
+        colors=palette,
     )
 
-    yticklabels = ax.get_yticklabels()
-    for i, color in [(-2, "blue"), (-1, "orange")]:
-        yticklabels[i].set_color(color)
-
-    ax.set_ylabel(ylabel)
-    ax.set_ylim(0, ymax)
-
-    plt.gcf().set_size_inches(30, 8)
-    plt.savefig(args.output, dpi=600, bbox_inches="tight")
+    fig.savefig(args.output, dpi=600, bbox_inches="tight")
 
 
 if __name__ == "__main__":

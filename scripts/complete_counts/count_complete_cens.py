@@ -87,6 +87,18 @@ def main():
         help=f"Input HOR array length by contig with sample, chromosome, and contig/haplotype in name (ex. HG00171_chr1_h2tg000057l#1-9773347:114672-7639070). Expects TSV with no header and the fields: {DEF_IN_COLS}",
     )
     ap.add_argument(
+        "--color_a",
+        type=str,
+        help="Color for a input.",
+        default="blue",
+    )
+    ap.add_argument(
+        "--color_b",
+        type=str,
+        help="Color for b input.",
+        default="red",
+    )
+    ap.add_argument(
         "-o",
         "--output",
         default="complete_centromeres.png",
@@ -112,6 +124,10 @@ def main():
     chroms = args.chroms
     n_chroms = args.n_chroms
     no_chrom = "all" in args.chroms
+    palette = {
+        "Release 1": args.color_a,
+        "Release 2": args.color_b,
+    }
 
     # Include rc- in pattern
     if not no_chrom:
@@ -149,6 +165,7 @@ def main():
         x="sample",
         y="len",
         hue="release",
+        palette=palette,
         height=8.0,
         aspect=2.0,
     )
@@ -162,8 +179,8 @@ def main():
 
     mean_a = df_a["len"].mean()
     mean_b = df_b["len"].mean()
-    g.ax.axhline(mean_a, color="blue", linestyle="dotted")
-    g.ax.axhline(mean_b, color="orange", linestyle="dotted")
+    g.ax.axhline(mean_a, color=palette["Release 1"], linestyle="dotted")
+    g.ax.axhline(mean_b, color=palette["Release 2"], linestyle="dotted")
 
     ax_2 = g.ax.secondary_yaxis(location="right")
     ax_2.set_yticks(
@@ -171,7 +188,7 @@ def main():
         [*[perc_cens(ytick) for ytick in yticks], perc_cens(mean_a), perc_cens(mean_b)],
     )
     yticklabels = ax_2.get_yticklabels()
-    for i, color in [(-2, "blue"), (-1, "orange")]:
+    for i, color in [(-2, palette["Release 1"]), (-1, palette["Release 2"])]:
         yticklabels[i].set_color(color)
 
     ax_2.set_ylabel(r"% of centromeres completely assembled")

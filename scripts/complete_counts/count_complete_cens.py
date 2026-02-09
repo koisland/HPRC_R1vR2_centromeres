@@ -169,7 +169,7 @@ def main():
         height=8.0,
         aspect=2.0,
     )
-    g.set_axis_labels("", "# of centromeres completely assembled")
+    g.set_axis_labels("", "# of centromeres completely and accurately assembled")
     g.tick_params(axis="x", rotation=45)
 
     yticks = [*range(0, 50, 10), DEF_N_CHR]
@@ -191,7 +191,7 @@ def main():
     for i, color in [(-2, palette["Release 1"]), (-1, palette["Release 2"])]:
         yticklabels[i].set_color(color)
 
-    ax_2.set_ylabel(r"% of centromeres completely assembled")
+    ax_2.set_ylabel(r"% of centromeres completely and accurately assembled")
 
     sns.move_legend(
         g,

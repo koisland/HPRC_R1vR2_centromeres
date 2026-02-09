@@ -99,3 +99,49 @@ python scripts/live_arrays/plot_hor_length.py \
 Manual changes:
 * Same as [Count complete centromeres](#count-complete-centromeres) but without filter:
     * All chr3. Only one array complete.
+
+## Figure 2: HG00673 chr16
+Show example where R2's improved contiguity allows characterization of the centromere dip region.
+
+### CenMAP
+Run R1 and R2 with special branch of `CenMAP` allowing omitting entropy bed:
+* https://github.com/logsdon-lab/CenMAP/tree/feature/omit-entropy-filter
+
+Clone repo.
+```bash
+git clone git@github.com:logsdon-lab/CenMAP.git --recursive --branch feature/omit-entropy-filter
+cd CenMAP
+```
+
+Install dependencies.
+```bash
+conda install bioconda::cenmap
+```
+
+Link data. Both assembly and ONT data should be downloaded before.
+```bash
+mkdir -p data/assemblies data/ont
+ln -s /project/logsdon_shared/data/HPRC/assemblies/hifiasm/HG00673 data/assemblies/HG00673_R2
+ln -s /project/logsdon_shared/data/HPRC/assemblies/hifiasm_year1/HG00673 data/assemblies/HG00673_R1
+ln -s /project/logsdon_shared/data/HPRC/ont/HG00673 data/ont/HG00673_R2
+ln -s /project/logsdon_shared/data/HPRC/ont/HG00673 data/ont/HG00673_R1
+```
+
+Run CenMAP for R1 and R2 only on chr16 for HG00673.
+```bash
+snakemake -p --configfile ../config.yaml --workflow-profile workflow/profiles/lpc_all -j 50
+```
+
+### SafFire
+```bash
+snakemake -p -s saffire.smk --workflow-profile workflow/profiles/lpc_all -j 4
+```
+
+### CenPlot
+After running CenMAP, I formatted the CenPlot configfiles manually. See `./cenplot/*.yaml`.
+```bash
+snakemake -p -s replot.smk  --workflow-profile workflow/profiles/lpc_all -j 4
+```
+
+### Final
+Merged all previous outputs in `InkScape`. Legend added by ...

@@ -1,0 +1,69 @@
+chromosomes:
+  - "chr16"
+
+samples:
+  - HG00673_R1
+  - HG00673_R2
+
+concat_asm:
+  input_dir: "data/assemblies"
+  mem: 20GB
+
+ident_cen_ctgs:
+  threads_srf: 32
+  mem_srf: 50GB
+  threads_aln: 8
+  mem_aln: 150GB
+  bp_merge: 2500000
+  bp_slop: 1000000
+
+repeatmasker:
+  ref_repeatmasker_output: []
+  repeat_colors: "config/repeatmasker_colors.json"
+  omit_entropy_filter: true
+  bp_shannon_window: 5000
+  threads: 12
+
+humas_annot:
+  mode: "sd" # or "hmmer"
+  threads: 6
+  mem: 30GB
+  hmm_profile: "data/models/AS-HORs-hmmer3.4-071024.hmm.gz"
+
+plot_hor_stv:
+  ref_stv: []
+  sat_annot_colors: "config/repeatmasker_sat_annot_colors.json"
+  stv_annot_colors: "config/stv_annot_colors.tsv"
+
+calculate_hor_length:
+  ref_hor_lengths: []
+
+moddotplot:
+  mem: 10GB
+  ident_thr: 70.0
+  window: 5000
+
+ideogram:
+  title: "{sm}"
+  height: 15
+  width: 5
+
+cdr_finder:
+  # Either minimap2 or winnowmap
+  # Use aligner_opts to override defaults.
+  aligner: minimap2
+  # aligner_opts: "-y -a --eqx --cs -x lr:hqae -I8g -s 4000" # minimap2
+  # aligner_opts: "-y -a --eqx --cs -x map-ont -I8g -s 4000" # winnowmap
+  # Expects sample subdir in input_dir.
+  # Uses find and file pattern to merge bam.
+  input_bam_dir: "data/ont"
+  bam_rgx: ".*\\.bam$"
+  aln_mem: 50GB
+  aln_threads: 24
+  window_size: 5000
+  alr_threshold: 100000
+  bp_alr_merge: 8000
+  bp_edge: 500_000
+  height_perc_valley_threshold: 0.2
+  prom_perc_valley_threshold: 0.1
+  extend_edges_std: -1

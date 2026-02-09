@@ -1,0 +1,6 @@
+benchmarks
+logs
+results
+tmp*
+.snakemake_timestamp
+CenMAP

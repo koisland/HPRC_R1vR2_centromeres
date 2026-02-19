@@ -1,0 +1,3 @@
+[submodule "scripts/cdr_breakpoints/asm-to-reference-alignment"]
+	path = scripts/asm-to-reference-alignment
+	url = git@github.com:koisland/asm-to-reference-alignment.git

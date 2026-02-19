@@ -1,5 +1,5 @@
 # HPRC R2 Centromere Analysis
-Using `CenMAP` commit `ca012f7c80642446c25836f8144ea8106a42fbd1`.
+Using `CenMAP` commit `80d553f9e88172d4fc77ce889c3637041dbc5677`.
 
 ## Getting Started
 Clone and setup env.
@@ -13,7 +13,7 @@ conda activate hprc_r1vr2_cens
 Clone `CenMAP`. 
 ```bash
 git clone https://github.com/logsdon-lab/CenMAP \
---revision ca012f7c80642446c25836f8144ea8106a42fbd1 \
+--revision 80d553f9e88172d4fc77ce889c3637041dbc5677 \
 --depth 1 \
 --recursive
 ```
@@ -109,7 +109,7 @@ Run R1 and R2 with special branch of `CenMAP` allowing omitting entropy bed:
 
 Clone repo.
 ```bash
-git clone git@github.com:logsdon-lab/CenMAP.git --recursive --branch feature/omit-entropy-filter
+git clone git@github.com:logsdon-lab/CenMAP.git --recursive --revision 45a0fd326cbfbdb8669ff28658594f05f4fea8ee
 cd CenMAP
 ```
 
@@ -118,18 +118,15 @@ Install dependencies.
 conda install bioconda::cenmap
 ```
 
-Link data. Both assembly and ONT data should be downloaded before.
+Do the following:
+1. Link data for sample HG00673 and HG01071. Both assembly and ONT data should be downloaded before.
+2. Run CenMAP for R1 and R2 on chr16 for HG00673. Also chr6 HG01071 H1.
 ```bash
-mkdir -p data/assemblies data/ont
-ln -s /project/logsdon_shared/data/HPRC/assemblies/hifiasm/HG00673 data/assemblies/HG00673_R2
-ln -s /project/logsdon_shared/data/HPRC/assemblies/hifiasm_year1/HG00673 data/assemblies/HG00673_R1
-ln -s /project/logsdon_shared/data/HPRC/ont/HG00673 data/ont/HG00673_R2
-ln -s /project/logsdon_shared/data/HPRC/ont/HG00673 data/ont/HG00673_R1
-```
-
-Run CenMAP for R1 and R2 only on chr16 for HG00673.
-```bash
-snakemake -p --configfile ../config.yaml --workflow-profile workflow/profiles/lpc_all -j 50
+# Done via ../cenmap.sh
+bash ../link_data.sh HG00673
+bash ../link_data.sh HG01071
+snakemake -p --configfile ../config_chr16.yaml --workflow-profile workflow/profiles/lpc_all -j 50
+snakemake -p --configfile ../config_chr6.yaml --workflow-profile workflow/profiles/lpc_all -j 50
 ```
 
 ### SafFire

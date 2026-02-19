@@ -1,6 +1,9 @@
 wcs = glob_wildcards("cenplot/{ctg}.yaml")
 
 
+# rule copy_data
+
+
 rule replot:
     input:
         "cenplot/{ctg}.yaml",

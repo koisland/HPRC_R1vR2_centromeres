@@ -1,24 +1,23 @@
-benchmark_dir: benchmarks_2
+benchmark_dir: benchmarks
 calculate_hor_length:
   chromosome_colors: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/results/config/chrom_colors.tsv
   ref_hor_lengths: []
-# cdr_finder:
-#   aligner: minimap2
-#   aln_mem: 50GB
-#   aln_threads: 8
-#   alr_threshold: 100000
-#   bam_rgx: .*\.bam$
-#   baseline_avg_methyl: 0.4
-#   bp_alr_merge: 8000
-#   bp_edge: 500000
-#   bp_merge: 1
-#   extend_edges_std: -1
-#   filter_by_live_hor: true
-#   height_perc_valley_threshold: 0.34
-#   input_bam_dir: data/ont
-#   prom_perc_valley_threshold: 0.3
-#   use_srf_regions: false
-#   window_size: 5000
+cdr_finder:
+  aligner: minimap2
+  aln_mem: 50GB
+  aln_threads: 8
+  alr_threshold: 100000
+  baseline_avg_methyl: 0.4
+  bp_alr_merge: 8000
+  bp_edge: 500000
+  bp_merge: 1
+  extend_edges_std: -1
+  filter_by_live_hor: true
+  height_perc_valley_threshold: 0.2
+  input_bam_fofn_dir: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/data/ont
+  prom_perc_valley_threshold: 0.01
+  use_srf_regions: false
+  window_size: 5000
 chromosomes:
 - chr1
 - chr2
@@ -75,7 +74,7 @@ ideogram:
   title: '{sm}'
   use_renamed_reoriented: true
   width: 5
-log_dir: logs_2
+log_dir: logs
 moddotplot:
   ident_thr: 70.0
   mem: 10GB

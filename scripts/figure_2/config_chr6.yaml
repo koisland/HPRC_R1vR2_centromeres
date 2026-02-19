@@ -1,9 +1,9 @@
 chromosomes:
-  - "chr16"
+  - "chr6"
 
 samples:
-  - HG00673_R1
-  - HG00673_R2
+  - HG01071_R1
+  - HG01071_R2
 
 concat_asm:
   input_dir: "data/assemblies"
@@ -40,7 +40,7 @@ calculate_hor_length:
 
 moddotplot:
   mem: 10GB
-  ident_thr: 70.0
+  ident_thr: 86.0
   window: 5000
 
 ideogram:

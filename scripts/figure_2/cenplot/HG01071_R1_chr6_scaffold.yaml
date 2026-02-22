@@ -1,0 +1,32 @@
+# HG01071_R1_rc-chr6_HG01071#2#JAHBCE010000006.1:2-2784701
+# HG01071_R1_chr6_HG01071#2#JAHBCE010000042.1:17490579-21090252
+settings:
+  axis_h_pad: 0.05
+  dim:
+  - 16
+  - 8
+  dpi: 600
+  format:
+  - png
+  - pdf
+  layout: constrained
+  transparent: true
+tracks:
+- options:
+    hide_x: true
+    invert: false
+    legend: false
+  path: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/results/moddotplot/HG01071/HG01071_R1_H2:1-6584374.bed
+  position: relative
+  proportion: 0.7
+  type: selfident
+- options:
+    hide_x: true
+    legend: false
+  path: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/results/censat/HG01071_mat_hprc_r1_v1.cenSat.relative.scaffold.bed
+  position: relative
+  proportion: 0.05
+  type: label
+- position: relative
+  proportion: 0.05
+  type: position

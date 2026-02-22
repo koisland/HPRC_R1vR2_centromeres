@@ -25,20 +25,10 @@ tracks:
 - options:
     hide_x: true
     legend: false
-  path: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/CenMAP/results/11-moddotplot/combined/bed/chr16/HG00673_R2_chr16_HG00673#2#JAHBBY020000044.1:15855520-24453678/sat_annot.bed
+  path: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/results/censat/HG00673_mat_hprc_r2_v1.cenSat.cenmap.bed
   position: relative
   proportion: 0.05
   type: label
-- options:
-    bg_border: true
-    hide_x: true
-    hor_filter: 1
-    legend: false
-    live_only: false
-    sort_order: descending
-  path: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/CenMAP/results/11-moddotplot/combined/bed/chr16/HG00673_R2_chr16_HG00673#2#JAHBBY020000044.1:15855520-24453678/stv.bed
-  position: overlap
-  type: hor
 - options:
     hide_x: true
     invert: true
@@ -50,10 +40,3 @@ tracks:
 - position: relative
   proportion: 0.05
   type: position
-- options:
-    index: 1
-    legend_ncols: 10
-  position: relative
-  proportion: 0.1
-  type: legend
-

@@ -1,0 +1,306 @@
+from os.path import join, dirname
+
+
+OUTDIR = "results"
+LOGDIR = "logs"
+BMKDIR = "benchmarks"
+CFG_CTGS = {
+    "HG00673_R1_H2:1-8986379": "/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/cenplot/HG00673_R1_chr16_scaffold.yaml",
+    "HG00673_R2_chr16_HG00673#2#JAHBBY020000044.1:15855520-24453678": "/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/cenplot/HG00673_R2_chr16_HG00673#2#JAHBBY020000044.1:15855520-24453678.yaml",
+    "HG01071_R1_H2:1-6584374": "/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/cenplot/HG01071_R1_chr6_scaffold.yaml",
+    "HG01071_R2_chr6_HG01071#2#JAHBCE020000004.1:57355589-63686828": "/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/cenplot/HG01071_R2_chr6_HG01071#2#JAHBCE020000004.1:57355589-63686828.yaml",
+}
+FASTA = {
+    "HG00673_R1_H2:1-8986379": "results/manual_scaffold/HG00673_R1_H2.fa",
+    "HG00673_R2_chr16_HG00673#2#JAHBBY020000044.1:15855520-24453678": "/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/CenMAP/results/8-humas_annot/seq/HG00673_R2_chr16_HG00673#2#JAHBBY020000044.1:15855520-24453678.fa",
+    "HG01071_R1_H2:1-6584374": "results/manual_scaffold/HG01071_R1_H2.fa",
+    "HG01071_R2_chr6_HG01071#2#JAHBCE020000004.1:57355589-63686828": "/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/CenMAP/results/8-humas_annot/seq/HG01071_R2_chr6_HG01071#2#JAHBCE020000004.1:57355589-63686828.fa",
+}
+
+def scaffold(name: str, infiles: list[str], outfile: str, scaffold_size: int = 100_000):
+    with open(outfile, "wt") as ofh:
+        print(f">{name}", file=ofh)
+        for file in infiles:
+            with open(file, "rt") as infh:
+                for line in infh:
+                    if line.startswith(">"):
+                        continue
+                    print(line.strip(), file=ofh, end="")
+            print("N" * scaffold_size, file=ofh, end="")
+    shell(f"samtools faidx {outfile}")
+
+
+rule manual_scaffold:
+    input:
+        HG00673_R1_H2=[
+            "/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/CenMAP/results/8-humas_annot/seq/HG00673_R1_rc-chr16_HG00673#2#JAHBBY010000128.1:15857115-17666371.fa",
+            "/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/CenMAP/results/8-humas_annot/seq/HG00673_R1_chr16_HG00673#2#JAHBBY010000121.1:2-2516994.fa",
+            "/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/CenMAP/results/8-humas_annot/seq/HG00673_R1_rc-chr16_HG00673#2#JAHBBY010000088.1:2-4360130.fa",
+        ],
+        HG01071_R1_H2=[
+            "/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/CenMAP/results/8-humas_annot/seq/HG01071_R1_chr6_HG01071#2#JAHBCE010000042.1:17490579-21090252.fa",
+            "/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/CenMAP/results/8-humas_annot/seq/HG01071_R1_rc-chr6_HG01071#2#JAHBCE010000006.1:2-2784701.fa",
+        ]
+    output:
+        HG00673_R1_H2="results/manual_scaffold/HG00673_R1_H2.fa",
+        HG01071_R1_H2="results/manual_scaffold/HG01071_R1_H2.fa",
+    run:
+        scaffold("HG00673_R1_H2:1-8986379", input.HG00673_R1_H2, output.HG00673_R1_H2)
+        scaffold("HG01071_R1_H2:1-6584374", input.HG01071_R1_H2, output.HG01071_R1_H2)
+
+
+# Download censat for R2
+rule download_censat:
+    output:
+        HG00673_censat="results/censat/HG00673_mat_hprc_r2_v1.cenSat.bed",
+        HG01071_censat="results/censat/HG01071_mat_hprc_r2_v1.cenSat.bed",
+    params:
+        HG00673_uri="s3://human-pangenomics/working/HPRC/HG00673/assemblies/release2/annotation/censat/HG00673_mat_hprc_r2_v1.cenSat.bed",
+        HG01071_uri="s3://human-pangenomics/working/HPRC/HG01071/assemblies/release2/annotation/censat/HG01071_mat_hprc_r2_v1.cenSat.bed",
+    shell:
+        """
+        aws s3 cp {params.HG00673_uri} {output.HG00673_censat}
+        aws s3 cp {params.HG01071_uri} {output.HG01071_censat}
+        """
+
+# Add sample_chrom prefix and coords to censat for plotting.
+rule reformat_R2_censat_for_cenplot:
+    input:
+        HG00673_censat=rules.download_censat.output.HG00673_censat,
+        HG01071_censat=rules.download_censat.output.HG01071_censat,
+    output:
+        HG00673_censat="results/censat/HG00673_mat_hprc_r2_v1.cenSat.cenmap.bed",
+        HG01071_censat="results/censat/HG01071_mat_hprc_r2_v1.cenSat.cenmap.bed",
+    shell:
+        """
+        grep "HG00673#2#JAHBBY020000044.1" {input.HG00673_censat} | \
+            awk -v OFS="\\t" '{{$1="HG00673_R2_chr16_HG00673#2#JAHBBY020000044.1:15855520-24453678"; print}}' > {output.HG00673_censat}
+        grep "HG01071#2#JAHBCE020000004.1" {input.HG01071_censat} | \
+            awk -v OFS="\\t" '{{$1="HG01071_R2_chr6_HG01071#2#JAHBCE020000004.1:57355589-63686828"; print}}' > {output.HG01071_censat}
+        """
+
+
+# Clip regions to relative coordinates for liftover to R1 scaffold
+# Note we'll use the original coordinates to plot.
+rule reformat_censat_to_relative:
+    input:
+        HG00673_censat=rules.download_censat.output.HG00673_censat,
+        HG01071_censat=rules.download_censat.output.HG01071_censat,
+    output:
+        HG00673_censat="results/censat/HG00673_mat_hprc_r2_v1.cenSat.relative.bed",
+        HG01071_censat="results/censat/HG01071_mat_hprc_r2_v1.cenSat.relative.bed",
+    shell:
+        """
+        bedtools intersect -a {input.HG00673_censat} -b <(printf "HG00673#2#JAHBBY020000044.1\\t15855520\\t24453678") | \
+        awk -v OFS="\\t" '{{
+            $2=$2-15855520; $3=$3-15855520;
+            $1="HG00673_R2_chr16_HG00673#2#JAHBBY020000044.1:15855520-24453678";
+            print
+        }}' > {output.HG00673_censat}
+        bedtools intersect -a {input.HG01071_censat} -b <(printf "HG01071#2#JAHBCE020000004.1\\t57355589\\t63686828") | \
+        awk -v OFS="\\t" '{{
+            $2=$2-57355589; $3=$3-57355589;
+            $1="HG01071_R2_chr6_HG01071#2#JAHBCE020000004.1:57355589-63686828";
+            print
+        }}' > {output.HG01071_censat}
+        """
+
+
+rule subset_ctg:
+    input:
+        fa=lambda wc: FASTA[wc.ctg],
+        bed="/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/regions.bed"
+    output:
+        "results/subset/{ctg}.fa"
+    shell:
+        """
+        # In relative coordinates
+        seqtk subseq {input.fa} <(cat {input.bed}) > {output}
+        """
+
+# Bad. Redundant but easier than fiddling with coordinates.
+HG00673_H2_ALN_CFG_VIZ_ONLY = {
+    "ref": {
+        "HG00673_H2_release_2_vis": expand(rules.subset_ctg.output, ctg="HG00673_R2_chr16_HG00673#2#JAHBBY020000044.1:15855520-24453678")[0]
+    },
+    "sm": {
+        "HG00673_H2_release_1_vis": expand(rules.subset_ctg.output, ctg="HG00673_R1_H2:1-8986379")[0]
+    },
+    "temp_dir": join(OUTDIR, "temp"),
+    "output_dir": OUTDIR,
+    "logs_dir": LOGDIR,
+    "benchmarks_dir": BMKDIR,
+    "aln_threads": 4,
+    "aln_mem": "4GB",
+    "mm2_opts": "-x asm5 --secondary=no -K 8G",
+}
+HG01071_H2_ALN_CFG_VIZ_ONLY = {
+    "ref": {
+        "HG01071_H2_release_2_vis": expand(rules.subset_ctg.output, ctg="HG01071_R2_chr6_HG01071#2#JAHBCE020000004.1:57355589-63686828")[0]
+    },
+    "sm": {
+        "HG01071_H2_release_1_vis": expand(rules.subset_ctg.output, ctg="HG01071_R1_H2:1-6584374")[0]
+    },
+    "temp_dir": join(OUTDIR, "temp"),
+    "output_dir": OUTDIR,
+    "logs_dir": LOGDIR,
+    "benchmarks_dir": BMKDIR,
+    "aln_threads": 4,
+    "aln_mem": "4GB",
+    "mm2_opts": "-x asm5 --secondary=no -K 8G",
+}
+
+
+module HG00673_H2_align_asm_to_ref_VIZ_ONLY:
+    snakefile:
+        "../asm-to-reference-alignment/workflow/Snakefile"
+    config:
+        HG00673_H2_ALN_CFG_VIZ_ONLY
+
+
+module HG01071_H2_align_asm_to_ref_VIZ_ONLY:
+    snakefile:
+        "../asm-to-reference-alignment/workflow/Snakefile"
+    config:
+        HG01071_H2_ALN_CFG_VIZ_ONLY
+
+
+use rule * from HG00673_H2_align_asm_to_ref_VIZ_ONLY as HG00673_H2_VIZ_ONLY_*
+
+
+use rule * from HG01071_H2_align_asm_to_ref_VIZ_ONLY as HG01071_H2_VIZ_ONLY_*
+
+
+HG00673_H2_ALN_CFG = {
+    "ref": {
+        "HG00673_H2_release_2": "/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/CenMAP/results/8-humas_annot/seq/HG00673_R2_chr16_HG00673#2#JAHBBY020000044.1:15855520-24453678.fa"
+    },
+    "sm": {
+        "HG00673_H2_release_1": rules.manual_scaffold.output.HG00673_R1_H2
+    },
+    "temp_dir": join(OUTDIR, "temp"),
+    "output_dir": OUTDIR,
+    "logs_dir": LOGDIR,
+    "benchmarks_dir": BMKDIR,
+    "aln_threads": 4,
+    "aln_mem": "4GB",
+    "mm2_opts": "-x asm5 --secondary=no -K 8G",
+}
+HG01071_H2_ALN_CFG = {
+    "ref": {
+        "HG01071_H2_release_2": "/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/CenMAP/results/8-humas_annot/seq/HG01071_R2_chr6_HG01071#2#JAHBCE020000004.1:57355589-63686828.fa"
+    },
+    "sm": {
+        "HG01071_H2_release_1": rules.manual_scaffold.output.HG01071_R1_H2
+    },
+    "temp_dir": join(OUTDIR, "temp"),
+    "output_dir": OUTDIR,
+    "logs_dir": LOGDIR,
+    "benchmarks_dir": BMKDIR,
+    "aln_threads": 4,
+    "aln_mem": "4GB",
+    "mm2_opts": "-x asm5 --secondary=no -K 8G",
+}
+
+
+module HG00673_H2_align_asm_to_ref:
+    snakefile:
+        "../asm-to-reference-alignment/workflow/Snakefile"
+    config:
+        HG00673_H2_ALN_CFG
+
+
+module HG01071_H2_align_asm_to_ref:
+    snakefile:
+        "../asm-to-reference-alignment/workflow/Snakefile"
+    config:
+        HG01071_H2_ALN_CFG
+
+
+use rule * from HG00673_H2_align_asm_to_ref as HG00673_H2_*
+
+
+use rule * from HG01071_H2_align_asm_to_ref as HG01071_H2_*
+
+
+# Liftover to R1 scaffold coordinates
+rule liftover_to_R1:
+    input:
+        HG00673_paf=expand(rules.HG00673_H2_bam_to_paf.output, ref="HG00673_H2_release_2", sm="HG00673_H2_release_1"),
+        HG00673_censat=rules.reformat_censat_to_relative.output.HG00673_censat,
+        HG01071_paf=expand(rules.HG01071_H2_bam_to_paf.output, ref="HG01071_H2_release_2", sm="HG01071_H2_release_1"),
+        HG01071_censat=rules.reformat_censat_to_relative.output.HG01071_censat,
+    output:
+        HG00673_R1_censat="results/censat/HG00673_mat_hprc_r1_v1.cenSat.relative.scaffold.bed",
+        HG01071_R1_censat="results/censat/HG01071_mat_hprc_r1_v1.cenSat.relative.scaffold.bed",
+    shell:
+        """
+        impg query -p {input.HG00673_paf} -b {input.HG00673_censat} | \
+            sort -k7 | \
+            join -1 7 -2 1 - <(sort -k4 {input.HG00673_censat} | cut -f 4,9) | \
+            awk -v OFS="\\t" '{{ print $2, $3, $4, $1, 0, ".", $3, $4, $11 }}' | \
+            sort -k1,1 -k2,2n -u > {output.HG00673_R1_censat}
+        impg query -p {input.HG01071_paf} -b {input.HG01071_censat} | \
+            sort -k7 | \
+            join -1 7 -2 1 - <(sort -k4 {input.HG01071_censat} | cut -f 4,9) | \
+            awk -v OFS="\\t" '{{ print $2, $3, $4, $1, 0, ".", $3, $4, $11 }}' | \
+            sort -k1,1 -k2,2n -u > {output.HG01071_R1_censat}
+        """
+
+
+# Also run moddotplot. We don't include methylation yet... until someone asks me.
+rule run_mdp:
+    input:
+        HG00673=rules.manual_scaffold.output.HG00673_R1_H2,
+        HG01071=rules.manual_scaffold.output.HG01071_R1_H2,
+    output:
+        HG00673_bedpe="results/moddotplot/HG00673/HG00673_R1_H2:1-8986379.bed",
+        HG01071_bedpe="results/moddotplot/HG01071/HG01071_R1_H2:1-6584374.bed",
+    params:
+        window=5000,
+        thr_ident=86.0,
+        HG00673_dir=lambda wc, output: dirname(output.HG00673_bedpe),
+        HG01071_dir=lambda wc, output: dirname(output.HG01071_bedpe),
+    shell:
+        """
+        censtats self-ident -i {input.HG00673} -o {params.HG00673_dir} -t {params.thr_ident} -x 2D -w {params.window}
+        censtats self-ident -i {input.HG01071} -o {params.HG01071_dir} -t {params.thr_ident} -x 2D -w {params.window}
+        """
+
+
+OUTPUTS = [
+    rules.HG00673_H2_all.input,
+    rules.HG00673_H2_VIZ_ONLY_all.input,
+    rules.HG01071_H2_all.input,
+    rules.HG01071_H2_VIZ_ONLY_all.input,
+    rules.download_censat.output,
+    rules.reformat_censat_to_relative.output,
+    rules.reformat_R2_censat_for_cenplot.output,
+    rules.liftover_to_R1.output,
+    rules.run_mdp.output,
+]
+
+
+rule draw_cenplots:
+    input:
+        all_outputs=OUTPUTS,
+        bed="/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/regions.bed",
+        cfg=lambda wc: CFG_CTGS[wc.ctg],
+    output:
+        directory("plots/{ctg}"),
+    shell:
+        """
+        # In absolute coordinates
+        chrom=$(grep {wildcards.ctg} {input.bed} | awk '{{
+            match($1, "([0-9]+)-([0-9]+)$", coords);
+            print $1":"$2+coords[1]"-"$3+coords[1]
+        }}');
+        cenplot draw -t {input.cfg} -c "${{chrom}}" -d {output}
+        """
+
+
+rule all:
+    input:
+        OUTPUTS,
+        expand(rules.draw_cenplots.output, ctg=CFG_CTGS.keys())
+    default_target: True

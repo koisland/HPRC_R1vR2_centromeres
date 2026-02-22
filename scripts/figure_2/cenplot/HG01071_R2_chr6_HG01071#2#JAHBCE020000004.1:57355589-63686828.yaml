@@ -1,0 +1,42 @@
+settings:
+  axis_h_pad: 0.05
+  dim:
+  - 16
+  - 8
+  dpi: 600
+  format:
+  - png
+  - pdf
+  layout: constrained
+  transparent: true
+tracks:
+- options:
+    hide_x: true
+    ymax: 100
+  path: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/CenMAP/results/11-moddotplot/combined/bed/chr6/HG01071_R2_chr6_HG01071#2#JAHBCE020000004.1:57355589-63686828/methyl.bed
+  position: relative
+  proportion: 0.1
+  title: 'Mean CpG
+
+    methylation
+
+    (%)'
+  type: bar
+- options:
+    hide_x: true
+    legend: false
+  path: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/results/censat/HG01071_mat_hprc_r2_v1.cenSat.cenmap.bed
+  position: relative
+  proportion: 0.05
+  type: label
+- options:
+    hide_x: true
+    invert: true
+    legend: false
+  path: /project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/exp/scripts/figure_2/CenMAP/results/11-moddotplot/combined/bed/chr6/HG01071_R2_chr6_HG01071#2#JAHBCE020000004.1:57355589-63686828/ident.bedpe
+  position: relative
+  proportion: 0.7
+  type: selfident
+- position: relative
+  proportion: 0.05
+  type: position

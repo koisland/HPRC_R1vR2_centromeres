@@ -100,8 +100,12 @@ Manual changes:
 * Same as [Count complete centromeres](#count-complete-centromeres) but without filter:
     * All chr3. Only one array complete.
 
-## Figure 2: HG00673 chr16
+## Figure 2: Release 1 and CDR breaks
 Show example where R2's improved contiguity allows characterization of the centromere dip region.
+
+```bash
+pushd figure_2
+```
 
 ### CenMAP
 Run R1 and R2 with special branch of `CenMAP` allowing omitting entropy bed:
@@ -110,12 +114,7 @@ Run R1 and R2 with special branch of `CenMAP` allowing omitting entropy bed:
 Clone repo.
 ```bash
 git clone git@github.com:logsdon-lab/CenMAP.git --recursive --revision 45a0fd326cbfbdb8669ff28658594f05f4fea8ee
-cd CenMAP
-```
-
-Install dependencies.
-```bash
-conda install bioconda::cenmap
+pushd CenMAP
 ```
 
 Do the following:
@@ -127,18 +126,34 @@ bash ../link_data.sh HG00673
 bash ../link_data.sh HG01071
 snakemake -p --configfile ../config_chr16.yaml --workflow-profile workflow/profiles/lpc_all -j 50
 snakemake -p --configfile ../config_chr6.yaml --workflow-profile workflow/profiles/lpc_all -j 50
+popd
 ```
 
-### SafFire
+### SafFire and CenPlot
 ```bash
-snakemake -p -s saffire.smk --workflow-profile workflow/profiles/lpc_all -j 4
+snakemake -p --workflow-profile workflow/profiles/lpc_all -j 4
+popd
 ```
 
-### CenPlot
-After running CenMAP, I formatted the CenPlot configfiles manually. See `./cenplot/*.yaml`.
+### CDR breakpoints by chromosome
+Determine number of centromeres breaking in CDR.
 ```bash
-snakemake -p -s replot.smk  --workflow-profile workflow/profiles/lpc_all -j 4
+pushd cdr_breakpoints
+```
+
+Does the following:
+* Align R1 (query) assemblies to R2 (target). We need alignment coordinates to be in R2.
+* Format CDR bed
+* Liftover to R1 coordinates
+* Determine breaks in CDR based on following criteria:
+    *  If only one mapping must be close to start or end of contig and is incomplete
+    *  If only multiple mapping.
+* Count and plot. Also Fisher's exact test per chrom. Also do FDR control.
+
+```bash
+snakemake -p --workflow-profile workflow/profiles/lpc_all -j 4
+popd
 ```
 
 ### Final
-Merged all previous outputs in `InkScape`. Legend added by ...
+Merged all previous outputs in `InkScape`. Legend and additional formatting by Glennis.

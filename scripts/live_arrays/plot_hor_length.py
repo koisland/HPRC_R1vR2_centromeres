@@ -1,11 +1,11 @@
+import os
 import argparse
-import numpy as np
 import polars as pl
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from collections import OrderedDict
-from typing import Callable
+from typing import Any, Callable
 
 
 DEF_COLS = ("chrom", "chrom_st", "chrom_end", "length")
@@ -44,6 +44,8 @@ DEF_CHR_COLORS = dict(
 LEGEND_KWARGS = dict(
     loc="upper right",
     alignment="left",
+    handlelength=1.0,
+    handleheight=1.0,
     frameon=False,
 )
 
@@ -120,6 +122,57 @@ def read_lengths(
         df_lengths = fn_filter(df_lengths)
 
     return df_lengths
+
+
+def draw_only_bar(
+    df_all_lengths: pl.DataFrame,
+    palette: dict[str, Any],
+    palette_order: dict[str, Any],
+    outfile: str,
+):
+    fig, ax = plt.subplots(
+        figsize=(30, 10),
+        layout="constrained",
+    )
+    df_all_length_counts = df_all_lengths.group_by(
+        ["chrom_name", "source", "release"]
+    ).agg(count=pl.col("chrom").count())
+    sns.barplot(
+        x="chrom_name",
+        y="count",
+        hue="release",
+        data=df_all_length_counts,
+        order=palette_order.keys(),
+        hue_order=palette.keys(),
+        palette=palette,
+        ax=ax,
+        legend="full",
+        edgecolor="black",
+    )
+    for cont in ax.containers:
+        ax.bar_label(cont)
+
+    ax.set_ylim(0, df_all_length_counts["count"].max())
+    ax.set_ylabel("Number of α-satellite HOR arrays")
+
+    for spine in ["top", "right"]:
+        ax.spines[spine].set_visible(False)
+    # x-axis
+    ax.set_xlabel("Chromosome")
+    # Remove chr from x-ticks
+    xtick_labels = [lbl.get_text().replace("chr", "") for lbl in ax.get_xticklabels()]
+    ax.set_xticks(ax.get_xticks(), xtick_labels)
+    add_mean_lines(
+        ax=ax,
+        df=df_all_length_counts,
+        by_col="release",
+        val_col="count",
+        fn_label=lambda x: str(int(x)),
+        colors=palette,
+    )
+    sns.move_legend(ax, title=None, **LEGEND_KWARGS)
+
+    fig.savefig(outfile, dpi=600, bbox_inches="tight")
 
 
 def main():
@@ -312,7 +365,10 @@ def main():
         fn_label=lambda x: str(int(x)),
         colors=palette,
     )
-
+    output_fname, _ = os.path.splitext(args.output)
+    draw_only_bar(
+        df_all_lengths, palette, palette_order, f"{output_fname}_bar_only.png"
+    )
     fig.savefig(args.output, dpi=600, bbox_inches="tight")
 
 

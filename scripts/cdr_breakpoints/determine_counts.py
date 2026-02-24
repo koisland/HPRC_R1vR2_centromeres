@@ -10,6 +10,7 @@ def main():
     bed_complete_qry = sys.argv[3]
     bed_complete_ref = sys.argv[4]
     outfile = sys.argv[5]
+    bp_edge = int(sys.argv[6])
 
     # Read in liftover.
     df_liftover = pl.read_csv(
@@ -98,9 +99,9 @@ def main():
             if grp and n_rows > 1:
                 # Multiple map but complete bed
                 if df_grp["qry_right"].null_count() != n_rows:
-                    status = "complete"
+                    status = "No break in centromeric region"
                 else:
-                    status = "cdr_break"
+                    status = "Break in CDR"
             # No mapping against R2 contig.
             # Some issues with p-arm fragments acrocentric chromosomes.
             # Try to recover by hap and sample
@@ -121,7 +122,7 @@ def main():
                         )
                         if not df_qry.is_empty():
                             qry = df_qry[0]["qry_right"][0]
-                            status = "complete"
+                            status = "No break in centromeric region"
                             recovered_ovl.add(qry)
                     else:
                         df_ref = df_grp.filter(
@@ -130,7 +131,7 @@ def main():
                         )
                         if not df_ref.is_empty():
                             ref = df_ref[0]["ref_right"][0]
-                            status = "complete"
+                            status = "No break in centromeric region"
                         recovered_ovl.add(ref)
                     print(ref, qry, status, sep="\t", file=fh)
                 continue
@@ -139,16 +140,16 @@ def main():
                 row = df_grp.row(0, named=True)
                 # complete bed
                 if row["qry_right"] is not None:
-                    status = "complete"
+                    status = "No break in centromeric region"
                 else:
                     # break
                     # Double check and see if break at either edge.
-                    if row["qry_st"] < 150_000 or row["qry_end"] > max(
-                        0, row["qry_length"] - 150_000
+                    if row["qry_st"] < bp_edge or row["qry_end"] > max(
+                        0, row["qry_length"] - bp_edge
                     ):
-                        status = "cdr_break"
+                        status = "Break in CDR"
                     else:
-                        status = "other_break"
+                        status = "Break in non-CDR centromeric region"
 
             print(
                 grp,

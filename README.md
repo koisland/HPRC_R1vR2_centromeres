@@ -104,7 +104,7 @@ Manual changes:
 Show example where R2's improved contiguity allows characterization of the centromere dip region.
 
 ```bash
-pushd figure_2
+pushd scripts/figure_2
 ```
 
 ### CenMAP
@@ -138,7 +138,7 @@ popd
 ### CDR breakpoints by chromosome
 Determine number of centromeres breaking in CDR.
 ```bash
-pushd cdr_breakpoints
+pushd scripts/cdr_breakpoints
 ```
 
 Does the following:

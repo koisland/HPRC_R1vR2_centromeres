@@ -200,8 +200,10 @@ def main():
         ncol=2,
         title=None,
         frameon=False,
+        handlelength=1.0,
+        handleheight=1.0,
     )
-    g.savefig(args.output, bbox_inches="tight")
+    g.savefig(args.output, dpi=600, bbox_inches="tight")
 
 
 if __name__ == "__main__":

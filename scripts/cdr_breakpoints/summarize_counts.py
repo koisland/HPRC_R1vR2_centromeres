@@ -12,8 +12,13 @@ from matplotlib.patches import Patch
 from scipy.stats import fisher_exact, false_discovery_control
 
 ORDER = [*[str(i) for i in range(1, 23)], "X", "Y"]
-HUE_ORDER = {"complete": "green", "cdr_break": "red", "other_break": "orange"}
-HUE_ORDER_BREAKS = ("cdr_break", "other_break")
+# ORDER = ["All", *[str(i) for i in range(1, 23)], "X", "Y"]
+HUE_ORDER = {
+    "No break in centromeric region": "green",
+    "Break in CDR": "red",
+    "Break in non-CDR centromeric region": "orange",
+}
+HUE_ORDER_BREAKS = ("Break in CDR", "Break in non-CDR centromeric region")
 ALPHA = 0.05
 HEADER_BREAKS = ("chrom", "status", "cnt", "prop", "type", "pvalue")
 
@@ -72,8 +77,18 @@ def main():
         .agg(cnt=pl.col("sm").count())
         .sort(by=["chrom", "status"])
     )
-
-    fig, ax = plt.subplots(layout="constrained", figsize=(8, 3))
+    # df_agg_all = (
+    #     df_filtered
+    #     .group_by(["status"])
+    #     .agg(chrom=pl.lit("All"), cnt=pl.col("sm").count())
+    #     .cast({"chrom": pl.Enum(ORDER)})
+    #     .select("chrom", "status", "cnt")
+    # )
+    # df_agg = pl.concat([
+    #     df_agg,
+    #     df_agg_all
+    # ])
+    fig, ax = plt.subplots(layout="constrained", figsize=(16, 5))
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
 
@@ -91,13 +106,17 @@ def main():
         ax,
         loc="upper right",
         ncol=1,
+        handlelength=1.0,
+        handleheight=1.0,
         title=None,
         frameon=False,
     )
     ax.set_xlabel("Chromosome")
     ax.set_ylabel("Number of events\nin HPRC release 1 centromeres")
 
-    fig.savefig(join(output_dir, "cdr_breaks_summary.png"), bbox_inches="tight")
+    fig.savefig(
+        join(output_dir, "cdr_breaks_summary.png"), dpi=600, bbox_inches="tight"
+    )
     df_agg.write_csv(join(output_dir, "cdr_breaks_summary.tsv"), separator="\t")
 
     fig, axes = plt.subplots(
@@ -124,10 +143,12 @@ def main():
         ax: Axes = axes[row, col]
 
         df_chrom = df_filtered.filter(
-            pl.col("chrom").eq(chrom) & pl.col("status").ne(pl.lit("complete"))
+            pl.col("chrom").eq(chrom)
+            & pl.col("status").ne(pl.lit("No break in centromeric region"))
         )
         df_chrom_other = df_filtered.filter(
-            ~pl.col("chrom").eq(chrom) & pl.col("status").ne(pl.lit("complete"))
+            ~pl.col("chrom").eq(chrom)
+            & pl.col("status").ne(pl.lit("No break in centromeric region"))
         )
         # Fill with 0 if not present.
         chrom_statuses = break_default_counts | dict(
@@ -147,8 +168,8 @@ def main():
         # Convert to proportion to plot.
         df_agg_status_prop = pl.DataFrame(
             [
-                *((s, v, "chrom") for s, v in chrom_statuses.items()),
-                *((s, v, "other_chrom") for s, v in chrom_other_statuses.items()),
+                *((s, v, "Chromosome") for s, v in chrom_statuses.items()),
+                *((s, v, "Other Chromosomes") for s, v in chrom_other_statuses.items()),
             ],
             orient="row",
             schema=["status", "cnt", "type"],
@@ -163,7 +184,7 @@ def main():
             x="type",
             y="prop",
             hue="status",
-            order=("chrom", "other_chrom"),
+            order=("Chromosome", "Other Chromosomes"),
             hue_order=HUE_ORDER_BREAKS,
             palette=break_colors,
             ax=ax,
@@ -207,13 +228,18 @@ def main():
     fig.legend(
         labels=HUE_ORDER_BREAKS,
         handles=[Patch(color=c) for s, c in break_colors.items()],
-        bbox_to_anchor=(1.01, 0.5),
-        loc="center left",
+        ncol=2,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.01),
+        handlelength=1.0,
+        handleheight=1.0,
         title=None,
         frameon=False,
     )
     fig.supylabel("Proportion of breaks in HPRC release 1 centromeres (%)")
-    fig.savefig(join(output_dir, "fisher_exact_by_chrom.png"), bbox_inches="tight")
+    fig.savefig(
+        join(output_dir, "fisher_exact_by_chrom.png"), dpi=600, bbox_inches="tight"
+    )
 
 
 if __name__ == "__main__":

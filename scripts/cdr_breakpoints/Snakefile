@@ -1,4 +1,4 @@
-from os.path import join
+from os.path import join, dirname
 
 
 OUTPUT_DIR = "results"
@@ -21,6 +21,7 @@ FASTA = {
     }
     for sm in SAMPLES
 }
+DST = [1_000, 5_000, 50_000, 150_000]
 
 
 rule alignment:
@@ -73,8 +74,6 @@ rule liftover_cdr_bed:
         bed=os.path.join(OUTPUT_DIR, "{sm}_cdr_intersected.bed"),
     params:
         bp_merge=150_000,
-    conda:
-        "env.yaml"
     shell:
         """
         impg query \
@@ -96,22 +95,20 @@ rule determine_n_breaks:
         bed_r2_complete="/project/logsdon_shared/projects/HPRC/CenMAP-R1vR2/results/R2/results/R2/final/bed/{sm}_complete_correct_cens.bed",
         bed_cdr_ovl=rules.liftover_cdr_bed.output,
     output:
-        tsv=join(OUTPUT_DIR, "{sm}.tsv"),
+        tsv=join(OUTPUT_DIR, "{sm}_{dst}.tsv"),
     params:
         script="determine_counts.py",
-    conda:
-        "env.yaml"
     shell:
         """
-        python {params.script} {input.bed_cdr_ovl} {input.fai_r1} {input.bed_r1_complete} {input.bed_r2_complete} {output}
+        python {params.script} {input.bed_cdr_ovl} {input.fai_r1} {input.bed_r1_complete} {input.bed_r2_complete} {output} {wildcards.dst}
         """
 
 
 rule aggregate_breaks:
     input:
-        expand(rules.determine_n_breaks.output, sm=SAMPLES),
+        expand(rules.determine_n_breaks.output, sm=SAMPLES, dst="{dst}"),
     output:
-        tsv=join(OUTPUT_DIR, "all.tsv"),
+        tsv=join(OUTPUT_DIR, "all_{dst}.tsv"),
     shell:
         """
         cat {input} > {output}
@@ -122,13 +119,11 @@ rule plot_summarize_breaks:
     input:
         rules.aggregate_breaks.output,
     output:
-        join(OUTPUT_DIR, "cdr_breaks_summary.png"),
-        join(OUTPUT_DIR, "cdr_breaks_summary.tsv"),
+        join(OUTPUT_DIR, "{dst}", "cdr_breaks_summary.png"),
+        join(OUTPUT_DIR, "{dst}", "cdr_breaks_summary.tsv"),
     params:
         script="summarize_counts.py",
-        output_dir=OUTPUT_DIR,
-    conda:
-        "env.yaml"
+        output_dir=lambda wc, output: dirname(output[0]),
     shell:
         """
         python {params.script} {input} {params.output_dir}
@@ -138,6 +133,6 @@ rule plot_summarize_breaks:
 rule all:
     input:
         expand(rules.liftover_cdr_bed.output, sm=SAMPLES),
-        expand(rules.determine_n_breaks.output, sm=SAMPLES),
-        rules.plot_summarize_breaks.output,
+        expand(rules.determine_n_breaks.output, sm=SAMPLES, dst=DST),
+        expand(rules.plot_summarize_breaks.output, dst=DST),
     default_target: True

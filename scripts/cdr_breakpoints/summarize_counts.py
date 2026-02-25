@@ -11,8 +11,8 @@ from matplotlib.axes import Axes
 from matplotlib.patches import Patch
 from scipy.stats import fisher_exact, false_discovery_control
 
-ORDER = [*[str(i) for i in range(1, 23)], "X", "Y"]
-# ORDER = ["All", *[str(i) for i in range(1, 23)], "X", "Y"]
+# ORDER = [*[str(i) for i in range(1, 23)], "X", "Y"]
+ORDER = ["All", *[str(i) for i in range(1, 23)], "X", "Y"]
 HUE_ORDER = {
     "No break in centromeric region": "green",
     "Break in CDR": "red",
@@ -70,6 +70,11 @@ def main():
         .unnest("mtch")
         .cast({"chrom": pl.Enum(ORDER)})
     )
+    df_chrom_zeroes = pl.DataFrame(
+        [(chrom, status, 0) for chrom in ORDER for status in HUE_ORDER],
+        orient="row",
+        schema=["chrom", "status", "cnt"],
+    ).cast({"chrom": pl.Enum(ORDER)})
 
     # Generate summary stats
     df_agg = (
@@ -77,25 +82,38 @@ def main():
         .agg(cnt=pl.col("sm").count())
         .sort(by=["chrom", "status"])
     )
-    # df_agg_all = (
-    #     df_filtered
-    #     .group_by(["status"])
-    #     .agg(chrom=pl.lit("All"), cnt=pl.col("sm").count())
-    #     .cast({"chrom": pl.Enum(ORDER)})
-    #     .select("chrom", "status", "cnt")
-    # )
-    # df_agg = pl.concat([
-    #     df_agg,
-    #     df_agg_all
-    # ])
-    fig, ax = plt.subplots(layout="constrained", figsize=(16, 5))
+    df_agg_all = (
+        df_filtered.group_by(["status"])
+        .agg(chrom=pl.lit("All"), cnt=pl.col("sm").count())
+        .cast({"chrom": pl.Enum(ORDER)})
+        .select("chrom", "status", "cnt")
+    )
+    df_agg = (
+        pl.concat([df_agg, df_agg_all])
+        .join(df_chrom_zeroes, on=["chrom", "status"], how="full")
+        .with_columns(
+            chrom=pl.when(pl.col("chrom").is_null())
+            .then(pl.col("chrom_right"))
+            .otherwise(pl.col("chrom")),
+            status=pl.when(pl.col("status").is_null())
+            .then(pl.col("status_right"))
+            .otherwise(pl.col("status")),
+            cnt=pl.when(pl.col("cnt").is_null())
+            .then(pl.col("cnt_right"))
+            .otherwise(pl.col("cnt")),
+        )
+        .select("chrom", "status", "cnt")
+        .with_columns(prop=(pl.col("cnt") / pl.col("cnt").sum().over("chrom")) * 100)
+    )
+
+    fig, ax = plt.subplots(layout="constrained", figsize=(20, 5))
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
 
     sns.barplot(
         df_agg.cast({"chrom": pl.String}),
         x="chrom",
-        y="cnt",
+        y="prop",
         hue="status",
         hue_order=HUE_ORDER.keys(),
         palette=HUE_ORDER,
@@ -111,8 +129,17 @@ def main():
         title=None,
         frameon=False,
     )
+    for status, cont in zip(HUE_ORDER, ax.containers, strict=True):
+        def get_lbl(x):
+            cnt = df_agg.filter(
+                pl.col("status").eq(pl.lit(status))
+                & pl.col("prop").eq(pl.lit(x))
+            )["cnt"][0]
+            return f"{x:.0f}%\n({cnt})"
+        ax.bar_label(cont, fmt=get_lbl, fontsize="x-small")
+
     ax.set_xlabel("Chromosome")
-    ax.set_ylabel("Number of events\nin HPRC release 1 centromeres")
+    ax.set_ylabel("Proportion of HPRC release 1 centromeres (%)")
 
     fig.savefig(
         join(output_dir, "cdr_breaks_summary.png"), dpi=600, bbox_inches="tight"

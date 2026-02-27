@@ -81,7 +81,8 @@ def add_mean_lines(
     val_col: str,
     fn_label: Callable[[int], str],
     colors: dict[str, str],
-):
+) -> list[tuple[str, str, int]]:
+    means = []
     for grp, df_grp in df.group_by([by_col]):
         grp = grp[0]
         mean = df_grp[val_col].mean()
@@ -96,7 +97,8 @@ def add_mean_lines(
         yticklabels = ax.get_yticklabels()
         # Last one is color
         yticklabels[-1].set_color(color)
-
+        means.append((label, color, mean))
+    return means
 
 def read_lengths(
     file: str,
@@ -124,12 +126,19 @@ def read_lengths(
     return df_lengths
 
 
+def perc_chrom(x: int, total: int) -> str:
+    return f"{(x / total) * 100:.0f}"
+
+
 def draw_only_bar(
     df_all_lengths: pl.DataFrame,
     palette: dict[str, Any],
     palette_order: dict[str, Any],
     outfile: str,
 ):
+    samples = df_all_lengths["sample"].unique()
+    nchroms_max = len(samples) * 2
+    
     fig, ax = plt.subplots(
         figsize=(30, 10),
         layout="constrained",
@@ -152,7 +161,7 @@ def draw_only_bar(
     for cont in ax.containers:
         ax.bar_label(cont)
 
-    ax.set_ylim(0, df_all_length_counts["count"].max())
+    ax.set_ylim(0, nchroms_max)
     ax.set_ylabel("Number of α-satellite HOR arrays")
 
     for spine in ["top", "right"]:
@@ -162,7 +171,7 @@ def draw_only_bar(
     # Remove chr from x-ticks
     xtick_labels = [lbl.get_text().replace("chr", "") for lbl in ax.get_xticklabels()]
     ax.set_xticks(ax.get_xticks(), xtick_labels)
-    add_mean_lines(
+    means = add_mean_lines(
         ax=ax,
         df=df_all_length_counts,
         by_col="release",
@@ -171,6 +180,20 @@ def draw_only_bar(
         colors=palette,
     )
     sns.move_legend(ax, title=None, **LEGEND_KWARGS)
+
+    labels, colors, means = zip(*means)
+
+    yticks = ax.get_yticks()
+    ax_2 = ax.secondary_yaxis(location="right")
+    ax_2.set_yticks(
+        [*yticks, *means],
+        [*[perc_chrom(ytick, nchroms_max) for ytick in yticks], *[perc_chrom(mean, nchroms_max) for mean in means]],
+    )
+    yticklabels = ax_2.get_yticklabels()
+    for i, color in enumerate(reversed(colors), 1):
+        yticklabels[-i].set_color(color)
+
+    ax_2.set_ylabel(r"% of α-satellite HOR arrays")
 
     fig.savefig(outfile, dpi=600, bbox_inches="tight")
 
@@ -252,6 +275,7 @@ def main():
             pl.col("chrom_end").max(),
             pl.col("length").sum(),
             pl.col("release").first(),
+            pl.col("sample").first(),
         )
         ylabel = "Cumulative length of α-satellite HOR arrays (Mbp)"
     else:

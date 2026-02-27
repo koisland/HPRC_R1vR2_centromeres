@@ -21,9 +21,7 @@ FASTA = {
     }
     for sm in SAMPLES
 }
-DST = [
-    1_000,
-]
+DST = [1_000]
 
 
 rule alignment:

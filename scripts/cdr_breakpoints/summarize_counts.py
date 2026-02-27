@@ -4,24 +4,25 @@ import numpy as np
 import polars as pl
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib.patheffects as pe
 
 from os.path import join
 from typing import Literal as L
 from matplotlib.axes import Axes
-from matplotlib.patches import Patch
+from matplotlib.patches import Patch, Rectangle
 from scipy.stats import fisher_exact, false_discovery_control
 
-# ORDER = [*[str(i) for i in range(1, 23)], "X", "Y"]
+
 ORDER = ["All", *[str(i) for i in range(1, 23)], "X", "Y"]
 HUE_ORDER = {
     "No break in centromeric region": "green",
-    "Break in CDR": "red",
     "Break in non-CDR centromeric region": "orange",
+    "Break in CDR": "red",
 }
-HUE_ORDER_BREAKS = ("Break in CDR", "Break in non-CDR centromeric region")
+HUE_ORDER_BREAKS = ("Break in non-CDR centromeric region", "Break in CDR")
 ALPHA = 0.05
 HEADER_BREAKS = ("chrom", "status", "cnt", "prop", "type", "pvalue")
-
+LABELS_CDR_BREAK_FISHER_EXACT = ("Chromosome", "All Other\nChromosomes")
 
 # https://rowannicholls.github.io/python/graphs/ax_based/boxplots_significance.html
 def draw_signif_brackets(
@@ -88,6 +89,7 @@ def main():
         .cast({"chrom": pl.Enum(ORDER)})
         .select("chrom", "status", "cnt")
     )
+    # Need to ensure all chromosomes are covered. Assign zero counts to missing chromosomes.
     df_agg = (
         pl.concat([df_agg, df_agg_all])
         .join(df_chrom_zeroes, on=["chrom", "status"], how="full")
@@ -110,33 +112,46 @@ def main():
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
 
-    sns.barplot(
+    # https://stackoverflow.com/a/65852680
+    sns.histplot(
         df_agg.cast({"chrom": pl.String}),
         x="chrom",
-        y="prop",
+        weights="prop",
         hue="status",
+        multiple="stack",
         hue_order=HUE_ORDER.keys(),
         palette=HUE_ORDER,
-        order=ORDER,
         ax=ax,
     )
+    ax.margins(x=0)
     sns.move_legend(
         ax,
-        loc="upper right",
-        ncol=1,
+        loc="center",
+        ncol=3,
+        bbox_to_anchor=(0.5, -0.15),
         handlelength=1.0,
         handleheight=1.0,
         title=None,
         frameon=False,
     )
-    for status, cont in zip(HUE_ORDER, ax.containers, strict=True):
-        def get_lbl(x):
-            cnt = df_agg.filter(
-                pl.col("status").eq(pl.lit(status))
-                & pl.col("prop").eq(pl.lit(x))
-            )["cnt"][0]
-            return f"{x:.0f}%\n({cnt})"
-        ax.bar_label(cont, fmt=get_lbl, fontsize="x-small")
+
+    for status, ctn in zip(reversed(HUE_ORDER), ax.containers, strict=True):
+        for i, chrom in enumerate(ORDER):
+            rect: Rectangle = ctn[i]
+            row = df_agg.filter(pl.col("status").eq(pl.lit(status)) & pl.col("chrom").eq(pl.lit(chrom))).row(0, named=True)
+            cnt = row["cnt"]
+            prop = row["prop"]
+            label = f"{prop:.0f}%\n({cnt})"
+            # https://stackoverflow.com/a/28931750
+            ax.text(
+                rect.get_x() + rect.get_width() / 2,
+                (rect.get_y() + rect.get_height() / 2) - 2.0,
+                label,
+                ha="center",
+                va="bottom",
+                fontsize="x-small",
+                path_effects=[pe.withStroke(linewidth=2, foreground="white")],
+            )
 
     ax.set_xlabel("Chromosome")
     ax.set_ylabel("Proportion of HPRC release 1 centromeres (%)")
@@ -154,6 +169,8 @@ def main():
         sharey=True,
         layout="constrained",
     )
+    fig.set_constrained_layout_pads(hspace=0.1)
+
     axes: np.ndarray[tuple[L[4], L[6]], np.dtype[Axes]]
     # Then Fisher's exact test
     # * H_o: The proportion of breaks in the CDR is independent of chromosome
@@ -196,7 +213,7 @@ def main():
         df_agg_status_prop = pl.DataFrame(
             [
                 *((s, v, "Chromosome") for s, v in chrom_statuses.items()),
-                *((s, v, "Other Chromosomes") for s, v in chrom_other_statuses.items()),
+                *((s, v, "All Other Chromosomes") for s, v in chrom_other_statuses.items()),
             ],
             orient="row",
             schema=["status", "cnt", "type"],
@@ -211,7 +228,7 @@ def main():
             x="type",
             y="prop",
             hue="status",
-            order=("Chromosome", "Other Chromosomes"),
+            order=("Chromosome", "All Other Chromosomes"),
             hue_order=HUE_ORDER_BREAKS,
             palette=break_colors,
             ax=ax,
@@ -223,6 +240,7 @@ def main():
         ax.yaxis.set_major_formatter(lambda x, pos: round(x * 100, 1))
         ax.set_xlabel(None)
         ax.set_ylabel(None)
+        ax.set_xticks(ax.get_xticks(), LABELS_CDR_BREAK_FISHER_EXACT)
 
     # FDR adjust
     # Add signif bar.
